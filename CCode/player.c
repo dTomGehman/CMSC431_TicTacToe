@@ -7,6 +7,7 @@
 #include <netdb.h> 
 #include <sys/types.h> 
 #include <arpa/inet.h>
+#include "TicTacToe.h"
 
 #define PORT 9000
 #define ADDRESS "127.0.0.1"
@@ -34,25 +35,30 @@ void give(char*buff, int sockfd){
 
 void func(int sockfd)
 {
+    struct TicTacToe *game = malloc(sizeof(struct TicTacToe));
+    resetGame(game);
+    setPlayer(game, isX);
+    printf("%s", toString(game));
+
     char buff[BUFFSIZE];
     
     if (isX){
-        take(buff, sockfd);
+        give(buff, sockfd);
     }
     for (;;) {
-        give(buff, sockfd);
+        take(buff, sockfd);
         if ((strncmp(buff, "exit", 4)) == 0) {
             printf("Exit...\n");
             break;
         }
-
-        take(buff, sockfd);
+        give(buff, sockfd);
         if ((strncmp(buff, "exit", 4)) == 0) {
             printf("Exit...\n");
             break;
         }
     }
 }
+
 
 
 int main(int argc, char**argv) {
@@ -95,7 +101,7 @@ int main(int argc, char**argv) {
             exit(0);
         }
         else
-            printf("Server listening..\n");
+            printf("listening..\n");
         len = sizeof(cli);
 
         // Accept the data packet from client and verification
@@ -105,13 +111,17 @@ int main(int argc, char**argv) {
             exit(0);
         }
         else
-            printf("server accept the client...\n");
+            printf("Connected to player O.\n");
 
         // Function for chatting between client and server
         func(connfd);
 
    } else {
-        servaddr.sin_addr.s_addr = inet_addr(ADDRESS);
+        char*address = malloc(sizeof(char)*16);
+        printf("Address to connect:  ");
+        fgets(address, sizeof(char)*16, stdin);
+
+        servaddr.sin_addr.s_addr = inet_addr(address);
         // connect the client socket to server socket
         if (connect(sockfd, (SA*)&servaddr, sizeof(servaddr))
             != 0) {
@@ -119,9 +129,8 @@ int main(int argc, char**argv) {
             exit(0);
         }
         else
-            printf("connected to the server..\n");
+            printf("Connected to player X\n");
 
-        // function for chat
         func(sockfd);
     }
 

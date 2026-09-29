@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include "TicTacToe.h"
 /**
  * This file provides support for playing a Tic Tac Toe game,
  * but doesn't enforce which player goes when.  
@@ -9,22 +10,14 @@
  * author Dr. Girard
  *
  */
+/*
 struct TicTacToe 
 {
-	/**
-	 * ' ' - Blank place
-	 * 'O' - 'O' Player controls that spot
-	 * 'X' - 'X' Player controls that spot
-	 */
-	char values[3][3];
-	/**
-	 * -1 = game not started
-	 * 0 = 'O' Player
-	 * 1 = 'X' Player
-	 */
+    char values[3][3];
 	int player_move;
 	int length;
 };
+*/
 	
 	/**
 	 * Sets all the places on the board to blank.
@@ -152,16 +145,18 @@ struct TicTacToe
 		return board;
 	}
 
+/*
     int main(char **argsc,int argsv)
 	{
-		struct TicTacToe *game = malloc(sizeof(struct TicTacToe));
+		struct tictactoe *game = malloc(sizeof(struct tictactoe));
 		int player = 0;
-		resetGame(game);
-		setPlayer(game,player);
-		makeMove(game,1, 1);
+		resetgame(game);
+		setplayer(game,player);
+		makemove(game,1, 1);
 		player = 1;
-		setPlayer(game,player);
-		makeMove(game,0, 0);
-	    printf("%s",toString(game));
+		setplayer(game,player);
+		makemove(game,0, 0);
+	    printf("%s",tostring(game));
 		
 	}
+    */
