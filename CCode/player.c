@@ -22,7 +22,7 @@ int isX;
 void take(char*buff, int sockfd){
     bzero(buff, BUFFSIZE);
     read(sockfd, buff, BUFFSIZE);
-    printf("Received: %s", buff);
+    printf("Received: %s\n", buff);
 }
 
 void give(char*buff, int sockfd){
@@ -35,27 +35,66 @@ void give(char*buff, int sockfd){
 
 void func(int sockfd)
 {
+    //to add next time:
+    //  clean exit
+    //  check for correct input
+    //  check for win
+    //  check for stalemate
     struct TicTacToe *game = malloc(sizeof(struct TicTacToe));
     resetGame(game);
-    setPlayer(game, isX);
     printf("%s", toString(game));
 
     char buff[BUFFSIZE];
     
-    if (isX){
-        give(buff, sockfd);
+    //move format:  Command [row col]
+    //Commands:  e (exit), m (move), p (play again)
+    // e.g., on the first move, suppose X wants to move to row 3, column 2
+    // m32
+    // program appends 1 to the end to get m321.  
+
+    int turn=0;//use this variable to count turns to determine stalemate
+
+    setPlayer(game, 1);
+    if (isX){ //make first move
+        turn++;
+        bzero(buff, sizeof(buff));
+        printf("Enter move:  ");
+        int n = 0;
+        while ((buff[n++] = getchar()) != '\n');
+        if (buff[0] == 'e') return; //exit
+        makeMove(game, buff[1]-'0', buff[2]-'0');
+        printf("%s", toString(game));
+        buff[3]='0'+turn;
+        write(sockfd, buff, sizeof(buff));
     }
     for (;;) {
+        
+        turn++;
+        setPlayer(game, !isX);
         take(buff, sockfd);
-        if ((strncmp(buff, "exit", 4)) == 0) {
-            printf("Exit...\n");
-            break;
-        }
-        give(buff, sockfd);
-        if ((strncmp(buff, "exit", 4)) == 0) {
-            printf("Exit...\n");
-            break;
-        }
+        if (buff[0] == 'e') break; //exit
+        makeMove(game, buff[1]-'0', buff[2]-'0');
+        printf("%d\n", turn);
+        printf("%s", toString(game));
+
+
+        turn++;
+        setPlayer(game, isX);
+        bzero(buff, sizeof(buff));
+        printf("Enter move:  ");
+        int n = 0;
+        while ((buff[n++] = getchar()) != '\n');
+        if (buff[0] == 'e') break; //exit
+        makeMove(game, buff[1]-'0', buff[2]-'0');
+        printf("%d\n", turn);
+        printf("%s", toString(game));
+        buff[3]='0'+turn;
+        write(sockfd, buff, sizeof(buff));
+
+        //if ((strncmp(buff, "exit", 4)) == 0) {
+        //    printf("Exit...\n");
+        //    break;
+        //}
     }
 }
 
