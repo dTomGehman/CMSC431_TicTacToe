@@ -19,6 +19,11 @@
 //'o' must be started second and sends a message first.  
 int isX;
 
+void egg_sit(int sockfd){
+    close(sockfd);
+    exit(0);
+}
+
 void take(char*buff, int sockfd){
     bzero(buff, BUFFSIZE);
     read(sockfd, buff, BUFFSIZE);
@@ -36,8 +41,6 @@ void give(char*buff, int sockfd){
 void func(int sockfd)
 {
     //to add next time:
-    //  clean exit
-    //  check for correct input
     //  check for win
     //  check for stalemate
     struct TicTacToe *game = malloc(sizeof(struct TicTacToe));
@@ -56,13 +59,19 @@ void func(int sockfd)
 
     setPlayer(game, 1);
     if (isX){ //make first move
+
         turn++;
-        bzero(buff, sizeof(buff));
-        printf("Enter move:  ");
-        int n = 0;
-        while ((buff[n++] = getchar()) != '\n');
-        if (buff[0] == 'e') return; //exit
-        makeMove(game, buff[1]-'0', buff[2]-'0');
+        do {
+            bzero(buff, sizeof(buff));
+            printf("Enter move:  ");
+            int n = 0;
+            while ((buff[n++] = getchar()) != '\n');
+            if (buff[0] == 'e') {
+                write(sockfd, buff, sizeof(buff));
+                egg_sit(sockfd); //exit
+            }
+        } while (!makeMove(game, buff[1]-'0', buff[2]-'0'));
+
         printf("%s", toString(game));
         buff[3]='0'+turn;
         write(sockfd, buff, sizeof(buff));
@@ -72,29 +81,40 @@ void func(int sockfd)
         turn++;
         setPlayer(game, !isX);
         take(buff, sockfd);
-        if (buff[0] == 'e') break; //exit
+        if (buff[0] == 'e') egg_sit(sockfd); //exit
         makeMove(game, buff[1]-'0', buff[2]-'0');
-        printf("%d\n", turn);
+        printf("Turn %d\n", turn);
         printf("%s", toString(game));
+        if (checkForWin(game)){
+            printf("You Lose\n");
+            break;
+        }
 
 
         turn++;
         setPlayer(game, isX);
-        bzero(buff, sizeof(buff));
-        printf("Enter move:  ");
-        int n = 0;
-        while ((buff[n++] = getchar()) != '\n');
-        if (buff[0] == 'e') break; //exit
-        makeMove(game, buff[1]-'0', buff[2]-'0');
-        printf("%d\n", turn);
+
+        do {
+            bzero(buff, sizeof(buff));
+            printf("Enter move:  ");
+            int n = 0;
+            while ((buff[n++] = getchar()) != '\n');
+            if (buff[0] == 'e') {
+                write(sockfd, buff, sizeof(buff));
+                egg_sit(sockfd); //exit
+            }
+        } while (!makeMove(game, buff[1]-'0', buff[2]-'0'));
+
+        printf("Turn %d\n", turn);
         printf("%s", toString(game));
+
         buff[3]='0'+turn;
         write(sockfd, buff, sizeof(buff));
+        if (checkForWin(game)){
+            printf("You Win\n");
+            break;
+        }
 
-        //if ((strncmp(buff, "exit", 4)) == 0) {
-        //    printf("Exit...\n");
-        //    break;
-        //}
     }
 }
 
