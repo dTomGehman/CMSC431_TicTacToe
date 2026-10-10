@@ -18,6 +18,7 @@
 //'x' becomes the 'server' and listens first.  
 //'o' must be started second and sends a message first.  
 int isX;
+struct TicTacToe *game; 
 
 void egg_sit(int sockfd){
     close(sockfd);
@@ -40,7 +41,7 @@ void give(char*buff, int sockfd){
 
 void func(int sockfd)
 {
-    struct TicTacToe *game = malloc(sizeof(struct TicTacToe));
+    if (!game) {game = malloc(sizeof(struct TicTacToe));}
     resetGame(game);
     printf("%s", toString(game));
 
@@ -58,7 +59,6 @@ void func(int sockfd)
 
         turn++;
         printf("\nTurn %d\n", turn);
-
         do {
             bzero(buff, sizeof(buff));
             printf("Enter move:  ");
@@ -118,8 +118,45 @@ void func(int sockfd)
             break;
         }
 
-
     }
+
+    isX=!isX;
+    if (isX) {
+        printf("Play again as X? [y/n]: ");
+        do {
+            int n = 0;
+            while ((buff[n++] = getchar()) != '\n');
+            if (buff[0] == 'n') {
+                write(sockfd, buff, sizeof(buff));
+                exit(0); //exit
+            }
+            if (buff[0] == 'y') {
+                write(sockfd, buff, sizeof(buff));
+                break;
+            }
+        } while (1);
+        take(buff, sockfd);
+        if (buff[0] == 'n') {close(sockfd); exit(0);} //exit
+    } else {
+        take(buff, sockfd);
+        if (buff[0] == 'n') {close(sockfd); exit(0);} //exit
+        printf("Play again as O? [y/n]: ");
+        do {
+            int n = 0;
+            while ((buff[n++] = getchar()) != '\n');
+            if (buff[0] == 'n') {
+                write(sockfd, buff, sizeof(buff));
+                exit(0); //exit
+            }
+            if (buff[0] == 'y') {
+                write(sockfd, buff, sizeof(buff));
+                break;
+            }
+        } while (1);
+    }
+       
+    func(sockfd);
+ 
 }
 
 
