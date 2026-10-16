@@ -19,10 +19,11 @@ class TicTacToe:
         self.initializeBoard();
 	
     # Sets all the places on the board to blank.
+    # _ implies we don't need the value, recommended by pyrite
     def initializeBoard(self):
-        for r in range(self.__max):
+        for _ in range(self.__max):
             new_row = []
-            for c in range(self.__max):
+            for _ in range(self.__max):
                 new_row.append(' ')
             self.__game_board.append(new_row)
 	
@@ -35,13 +36,13 @@ class TicTacToe:
 	
     def setPlayer(self,player):
         if player == -1:
-            player_move = -1
+            self.__player_move = -1
         elif player == 0:
-            player_move = 0
+            self.__player_move = 0
         elif player == 1:
-            player_move = 1
+            self.__player_move = 1
         else:
-            player_move = -1
+            self.__player_move = -1
 
     def getPlayer(self):
         return self.__player_move;
@@ -56,11 +57,11 @@ class TicTacToe:
 ##	  @return True if the game_board was updated, False otherwise.
     def makeMove(self, r, c):
         success = False;
-        if __game_board[r][c] == ' ':
-            if player_move == 0:
+        if self.__game_board[r][c] == ' ':
+            if self.__player_move == 0:
                 self.__game_board[r][c] = 'O'
                 success = True;
-            if player_move == 1:
+            if self.__player_move == 1:
                 self.__game_board[r][c] = 'X'
                 success = True;
         return success;
@@ -88,12 +89,10 @@ class TicTacToe:
         if (board[0][0] == win_token) and (board[1][1] == win_token) and (board[2][2] == win_token):
             win = True
 		
-        if (game_board[0][2] == win_token) and (board[1][1] == win_token) and (board[2][0] == win_token):
+        if (self.__game_board[0][2] == win_token) and (board[1][1] == win_token) and (board[2][0] == win_token):
             win = True
         return win
 
-	
-	
 ##	  @return The state of the board.
     def toString(self):
         board = "-------\n";
@@ -103,4 +102,3 @@ class TicTacToe:
             board += "|\n";
             board += "-------\n";
         return board;
-
