@@ -35,6 +35,12 @@ class TicTacToe:
         self.__player_move = -1
 	
     def setPlayer(self,player):
+        # Added character passing handling (daniel)
+        if player == 'x':
+            player = 1
+        if player == 'o':
+            player = 0
+
         if player == -1:
             self.__player_move = -1
         elif player == 0:
