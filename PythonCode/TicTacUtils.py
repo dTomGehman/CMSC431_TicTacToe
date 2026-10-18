@@ -4,6 +4,7 @@
 #  the board so a player can't change another player's move or
 #  mark the same place twice.
 class TicTacToe:
+    __turn_count = 0
     __max = 3
 ##	  ' ' - Blank place
 ##	  'O' - 'O' Player controls that spot
@@ -62,6 +63,7 @@ class TicTacToe:
 ##	  @param c Column player is making a move.
 ##	  @return True if the game_board was updated, False otherwise.
     def makeMove(self, r, c):
+        self.__turn_count += 1
         success = False;
         if self.__game_board[r][c] == ' ':
             if self.__player_move == 0:
@@ -97,6 +99,9 @@ class TicTacToe:
 		
         if (self.__game_board[0][2] == win_token) and (board[1][1] == win_token) and (board[2][0] == win_token):
             win = True
+        # Added conditional by me
+        if self.__turn_count == 9 and not win:
+            print("Stalemate! Adding more moves is pointless")
         return win
 
 ##	  @return The state of the board.

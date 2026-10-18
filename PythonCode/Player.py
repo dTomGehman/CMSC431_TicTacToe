@@ -30,10 +30,9 @@ def server_sock(addr, port):
     return (initsock,connsock)
 
 def opponent_move(board,sock):
-    raw = sock.recv(10)
-    if len(raw) == 0:
+    move = str(sock.recv(2048), 'utf8')
+    if len(move) == 0:
         exit("Critical error, client has disconnected.")
-    move = str(raw, "ascii")
     first_char = move[0]
     if first_char == 'e':
         print("Opponent triggered exit, closing socket...")
@@ -44,11 +43,18 @@ def opponent_move(board,sock):
     #    sock.close()
     #    exit("played")
     if len(move) <= 2:
-        exit("Invalid move, not p or e, no r/c spec")
-    row = int(move[1])
-    col = int(move[2])
+        exit("Invalid move, not exit, no r/c spec")
+    try:
+        row = int(move[1])
+        col = int(move[2])
+    except:
+        row = repr(move[1])
+        col = repr(move[2])
+        print(f"String len: {len(move)}")
+        print("String contents: " + move)
+        exit(f"Failed to cast integers, move[1] and move[2]")
     if not board.makeMove(row,col):
-        print("Move not allowed, board may be desynced?",flush=True)
+        print("Invalid move received from server, board desynced?")
         return False
     else:
         return (row,col)
@@ -66,45 +72,64 @@ def my_move(board,sock):
     #    sock.close()
     #    exit("played")
     if len(move) <= 2:
-        print("Invalid move, not p or e, no r/c spec")
+        print("Invalid move, non-exit, no r/c spec")
         return False
     row = int(move[1])
     col = int(move[2])
     if not board.makeMove(row,col):
-        print("Board spot in use, or other err")
+        print("Board spot in use, or out of bounds")
         return False
     else:
+        for char in move:
+            print(repr(char))
         return (row,col)
 
-def begin_game(board,sock):
-    playerTurn = 'x'
-    board.setPlayer(playerTurn)
+def begin_game(board,sock,player):
+    # lol
+    opponent = 'x'
+    if ord(player) > ord('o'):
+        opponent = 'o'
+    # This player var basically marks "am I the server" i.e. initial socket hoster.
     if player == 'x':
-        # Make first move
-        pass
+        initial_move = False
+        board.setPlayer(player)
+        initial_move = my_move(board,sock)
+        while not initial_move:
+            initial_move = my_move(board,sock)
+        row = str(initial_move[0])
+        col = str(initial_move[1])
+        print(f"Player {player} marked {row},{col}")
+        print(board.toString())
+        sock.send(bytes("m"+row+col,"utf8"))
     while True:
-        # Recieve opponents move and update board
+        # Opponents move
+        board.setPlayer(opponent)
         move_success = opponent_move(board,sock)
         while not move_success:
-            print("NOT MOVE SUCCESS",flush=True)
             opponent_move(board,sock)
         row = move_success[0]
         col = move_success[1]
-        print(f"Player {playerTurn} marked {row},{col}",flush=True)
+        print(f"Player {opponent} marked {row},{col}")
         print(board.toString())
+        if board.checkForWin():
+            print("Your loss.")
+        # Our move
         move_success = False
+        board.setPlayer(player)
         move_success = my_move(board,sock)
         while not move_success:
-            print("NOT MOVE SUCCESS",flush=True)
             move_success = my_move(board,sock)
-        row = move_success[0]
-        col = move_success[1]
-        sock.send(bytes("m"+row+col))
+        row = str(move_success[0])
+        col = str(move_success[1])
+        print(f"Player {player} marked {row},{col}")
+        print(board.toString())
+        sock.send(bytes("m"+row+col,"utf8"))
+        if board.checkForWin():
+            print("You win! Congrats! すばらしい!")
 
 port = 9000
 player = Exception
 sock = Exception
-
 
 if len(sys.argv) != 2:
     exit("Please pass 'x' or 'o' as the only arg. Choosing 'x' means you're host.")
@@ -117,4 +142,4 @@ if player == 'o':
     sock = client_sock(port)
 
 board = ttu.TicTacToe() 
-begin_game(board,sock)
+begin_game(board,sock,player)
