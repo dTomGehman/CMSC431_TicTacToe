@@ -27,7 +27,7 @@ def server_sock(addr, port):
     initsock = socket.create_server(address=(addr,port),family=socket.AF_INET)
     initsock.listen()
     connsock = initsock.accept()[0]
-    return (initsock,connsock)
+    return connsock
 
 def opponent_move(board,sock):
     move = str(sock.recv(2048), 'utf8')
@@ -80,8 +80,6 @@ def my_move(board,sock):
         print("Board spot in use, or out of bounds")
         return False
     else:
-        for char in move:
-            print(repr(char))
         return (row,col)
 
 def begin_game(board,sock,player):
@@ -113,6 +111,8 @@ def begin_game(board,sock,player):
         print(board.toString())
         if board.checkForWin():
             print("Your loss.")
+            sock.close()
+            exit()
         # Our move
         move_success = False
         board.setPlayer(player)
@@ -126,6 +126,8 @@ def begin_game(board,sock,player):
         sock.send(bytes("m"+row+col,"utf8"))
         if board.checkForWin():
             print("You win! Congrats! すばらしい!")
+            sock.close()
+            exit()
 
 port = 9000
 player = Exception
@@ -140,6 +142,10 @@ print(f"player selected: {player}")
 # Initalize sockets
 if player == 'o':
     sock = client_sock(port)
+else:
+    # '' means any address, i.e. 0.0.0.0
+    sock = server_sock('',port)
+
 
 board = ttu.TicTacToe() 
 begin_game(board,sock,player)
