@@ -19,6 +19,7 @@
 #include <sys/types.h> 
 #include <arpa/inet.h>
 #include "TicTacToe.h"
+#include "time.h"
 
 #define PORT 9000
 #define ADDRESS "127.0.0.1"
@@ -30,6 +31,7 @@
 //'o' must be started second and sends a message first.  
 int isX;
 struct TicTacToe *game; 
+FILE *fp;
 
 /**
  * take(buff, sockfd);
@@ -41,6 +43,7 @@ void take(char*buff, int sockfd){
     bzero(buff, BUFFSIZE);
     read(sockfd, buff, BUFFSIZE);
     printf("Received: %s\n", buff);
+    fprintf(fp,"Received: %s\n", buff);
 }
 
 /**
@@ -59,8 +62,8 @@ void playgame(int sockfd)
     
     //move format:  Command [row col]
     //Commands:  e (exit), m (move), p (play again)
-    // e.g., on the first move, suppose X wants to move to row 3, column 2
-    // m32
+    // e.g., on the first move, suppose X wants to move to row 1, column 2
+    // m12
 
     int turn=0;//use this variable to count turns to determine stalemate
 
@@ -76,13 +79,15 @@ void playgame(int sockfd)
             while ((buff[n++] = getchar()) != '\n');
             if (buff[0] == 'e') {
                 write(sockfd, buff, sizeof(buff));
+                fclose(fp);
+                close(sockfd);
                 exit(0);
             }
         } while (!makeMove(game, buff[1]-'0', buff[2]-'0'));
 
         printf("\n%s\n", toString(game));
-        //buff[3]='0'+turn;
         write(sockfd, buff, sizeof(buff));
+        fprintf(fp,"Sent: %s\n", buff);
     }
 
     for (;;) { //loop until the game is finished.  Player O receives X's message. 
@@ -91,7 +96,7 @@ void playgame(int sockfd)
         setPlayer(game, !isX);
         printf("Turn %d\n", turn);
         take(buff, sockfd);
-        if (buff[0] == 'e') {close(sockfd); exit(0);} //exit
+        if (buff[0] == 'e') {close(sockfd); fclose(fp);exit(0);} //exit
         makeMove(game, buff[1]-'0', buff[2]-'0');
         printf("%s\n", toString(game));
         if (checkForWin(game)){
@@ -113,6 +118,9 @@ void playgame(int sockfd)
             while ((buff[n++] = getchar()) != '\n');
             if (buff[0] == 'e') {
                 write(sockfd, buff, sizeof(buff));
+                fprintf(fp,"Sent: %s\n", buff);
+                //fclose(fp);
+                close(sockfd);
                 exit(0); //exit
             }
         } while (!makeMove(game, buff[1]-'0', buff[2]-'0'));
@@ -120,6 +128,7 @@ void playgame(int sockfd)
         printf("\n%s\n", toString(game));
 
         write(sockfd, buff, sizeof(buff));
+        fprintf(fp,"Sent: %s\n", buff);
         if (checkForWin(game)){
             printf("You Win\n");
             break;
@@ -138,28 +147,44 @@ void playgame(int sockfd)
             while ((buff[n++] = getchar()) != '\n');
             if (buff[0] == 'n') {
                 write(sockfd, buff, sizeof(buff));
+                fprintf(fp,"Sent: %s\n", buff);
+                fclose(fp);
+                close(sockfd);
                 exit(0); //exit
             }
             if (buff[0] == 'y') {
                 write(sockfd, buff, sizeof(buff));
+                fprintf(fp,"Sent: %s\n", buff);
                 break;
             }
         } while (1);
         take(buff, sockfd);
-        if (buff[0] == 'n') {close(sockfd); exit(0);} //exit
+        if (buff[0] == 'n') {
+            close(sockfd); 
+            fclose(fp);
+            exit(0); 
+        } //exit
     } else {
         take(buff, sockfd);
-        if (buff[0] == 'n') {close(sockfd); exit(0);} //exit
+        if (buff[0] == 'n') {
+            close(sockfd); 
+            fclose(fp);
+            exit(0);
+        } //exit
         printf("Play again as O? [y/n]: ");
         do {
             int n = 0;
             while ((buff[n++] = getchar()) != '\n');
             if (buff[0] == 'n') {
                 write(sockfd, buff, sizeof(buff));
+                fprintf(fp,"Sent: %s\n", buff);
+                fclose(fp);
+                close(sockfd);
                 exit(0); //exit
             }
             if (buff[0] == 'y') {
                 write(sockfd, buff, sizeof(buff));
+                fprintf(fp,"Sent: %s\n", buff);
                 break;
             }
         } while (1);
@@ -226,6 +251,9 @@ int main(int argc, char**argv) {
             printf("Connected to player O.\n");
 
         // Function for chatting between client and server
+        char filename[1000];
+        sprintf(filename, "xLog%ld", time(NULL));
+        fp = fopen(filename, "w");
         playgame(connfd);
 
    } else { //player O goes second and acts as the client
@@ -243,9 +271,13 @@ int main(int argc, char**argv) {
         else
             printf("Connected to player X\n");
 
+        char filename[1000];
+        sprintf(filename, "oLog%ld", time(NULL));
+        fp = fopen(filename, "w");
         playgame(sockfd);
     }
 
     // close the socket in case it was not closed already
     close(sockfd);
+    fclose(fp);
 }
