@@ -1,3 +1,5 @@
 *.zip
 *.o
 play
+__pycache__/
+/PythonCode/test.py

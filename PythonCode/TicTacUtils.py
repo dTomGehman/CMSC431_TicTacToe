@@ -1,9 +1,10 @@
 
-#  This class provides support for playing a Tic Tac Toe game,
+#  This class provides support for playing a Tic Tac Toe game, 
 #  but doesn't enforce which player goes when.  It does protect
 #  the board so a player can't change another player's move or
 #  mark the same place twice.
 class TicTacToe:
+    __turn_count = 0
     __max = 3
 ##	  ' ' - Blank place
 ##	  'O' - 'O' Player controls that spot
@@ -19,27 +20,36 @@ class TicTacToe:
         self.initializeBoard();
 	
     # Sets all the places on the board to blank.
+    # _ implies we don't need the value, recommended by pyrite
     def initializeBoard(self):
-        for r in range(self.__max):
+        for _ in range(self.__max):
             new_row = []
-            for c in range(self.__max):
+            for _ in range(self.__max):
                 new_row.append(' ')
             self.__game_board.append(new_row)
 	
     def resetGame(self):
         self.__game_board.clear()
-        initializeBoard(self)
+        # This looks like an error?
+        #initializeBoard(self)
+        self.initializeBoard()
         self.__player_move = -1
 	
     def setPlayer(self,player):
+        # Added character passing handling (daniel)
+        if player == 'x':
+            player = 1
+        if player == 'o':
+            player = 0
+
         if player == -1:
-            player_move = -1
+            self.__player_move = -1
         elif player == 0:
-            player_move = 0
+            self.__player_move = 0
         elif player == 1:
-            player_move = 1
+            self.__player_move = 1
         else:
-            player_move = -1
+            self.__player_move = -1
 
     def getPlayer(self):
         return self.__player_move;
@@ -51,23 +61,24 @@ class TicTacToe:
 ##	  set to -1.
 ##	  @param r Row player is making a move.
 ##	  @param c Column player is making a move.
-##	  @return True if the game_board was updated, false otherwise.
+##	  @return True if the game_board was updated, False otherwise.
     def makeMove(self, r, c):
-        success = false;
-        if game_board[r][c] == ' ':
-            if player_move == 0:
+        self.__turn_count += 1
+        success = False;
+        if self.__game_board[r][c] == ' ':
+            if self.__player_move == 0:
                 self.__game_board[r][c] = 'O'
-                success = true;
-            if player_move == 1:
+                success = True;
+            if self.__player_move == 1:
                 self.__game_board[r][c] = 'X'
-                success = true;
+                success = True;
         return success;
 	
 	
 ##	 Checks to see if the player_move player has won.
-##	 @return true if the player has won, false otherwise.
+##	 @return True if the player has won, False otherwise.
     def checkForWin(self):
-        win = false;
+        win = False;
         win_token = '-'
         if self.__player_move == 0:
             win_token = 'O'
@@ -77,21 +88,22 @@ class TicTacToe:
         board = self.__game_board
         for r in range(self.__max):
             if (board[r][0] == win_token) and (board[r][1] == win_token) and (board[r][2] == win_token):
-                win = true
+                win = True
     
         for c in range(self.__max):
             if (board[0][c] == win_token) and (board[1][c] == win_token) and (board[2][c] == win_token):
-                win = true;
+                win = True;
 		
         if (board[0][0] == win_token) and (board[1][1] == win_token) and (board[2][2] == win_token):
-            win = true
+            win = True
 		
-        if (game_board[0][2] == win_token) and (board[1][1] == win_token) and (board[2][0] == win_token):
-            win = true
+        if (self.__game_board[0][2] == win_token) and (board[1][1] == win_token) and (board[2][0] == win_token):
+            win = True
+        # Added conditional by me
+        if self.__turn_count == 9 and not win:
+            print("Stalemate! Adding more moves is pointless")
         return win
 
-	
-	
 ##	  @return The state of the board.
     def toString(self):
         board = "-------\n";
@@ -101,4 +113,3 @@ class TicTacToe:
             board += "|\n";
             board += "-------\n";
         return board;
-
