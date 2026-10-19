@@ -1,3 +1,14 @@
+/**
+ * player.c
+ * Tom Gehman
+ * 
+ * This contains the main procedure and helpers for playing Tic Tac Toe.  
+ * Run two instances to set up a TCP connection and play a game.  
+ * run ./play x
+ *      first and then ./play o
+ *      on another terminal.   
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,29 +29,29 @@
 //'x' becomes the 'server' and listens first.  
 //'o' must be started second and sends a message first.  
 int isX;
+struct TicTacToe *game; 
 
-void egg_sit(int sockfd){
-    close(sockfd);
-    exit(0);
-}
-
+/**
+ * take(buff, sockfd);
+ * Tom Gehman
+ *
+ * read a line from the socket
+ */
 void take(char*buff, int sockfd){
     bzero(buff, BUFFSIZE);
     read(sockfd, buff, BUFFSIZE);
     printf("Received: %s\n", buff);
 }
 
-void give(char*buff, int sockfd){
-    bzero(buff, sizeof(buff));
-    printf("Enter the string : ");
-    int n = 0;
-    while ((buff[n++] = getchar()) != '\n');
-    write(sockfd, buff, sizeof(buff));
-}
-
-void func(int sockfd)
+/**
+ * playgame(sockfd)
+ * Tom Gehman
+ *
+ * gameplay function.  Take turns making moves.
+ */
+void playgame(int sockfd)
 {
-    struct TicTacToe *game = malloc(sizeof(struct TicTacToe));
+    if (!game) {game = malloc(sizeof(struct TicTacToe));}
     resetGame(game);
     printf("%s", toString(game));
 
@@ -58,7 +69,6 @@ void func(int sockfd)
 
         turn++;
         printf("\nTurn %d\n", turn);
-
         do {
             bzero(buff, sizeof(buff));
             printf("Enter move:  ");
@@ -74,8 +84,9 @@ void func(int sockfd)
         //buff[3]='0'+turn;
         write(sockfd, buff, sizeof(buff));
     }
-    for (;;) {
-        
+
+    for (;;) { //loop until the game is finished.  Player O receives X's message. 
+        //receive a move
         turn++;
         setPlayer(game, !isX);
         printf("Turn %d\n", turn);
@@ -91,7 +102,7 @@ void func(int sockfd)
             break;
         }
 
-
+        //make next move
         turn++;
         setPlayer(game, isX);
         printf("Turn %d\n", turn);
@@ -108,7 +119,6 @@ void func(int sockfd)
 
         printf("\n%s\n", toString(game));
 
-        //buff[3]='0'+turn;
         write(sockfd, buff, sizeof(buff));
         if (checkForWin(game)){
             printf("You Win\n");
@@ -117,19 +127,58 @@ void func(int sockfd)
             printf("Stalemate\n");
             break;
         }
-
-
     }
+
+    //game over; switch players and ask to play again.  
+    isX=!isX;
+    if (isX) {
+        printf("Play again as X? [y/n]: ");
+        do {
+            int n = 0;
+            while ((buff[n++] = getchar()) != '\n');
+            if (buff[0] == 'n') {
+                write(sockfd, buff, sizeof(buff));
+                exit(0); //exit
+            }
+            if (buff[0] == 'y') {
+                write(sockfd, buff, sizeof(buff));
+                break;
+            }
+        } while (1);
+        take(buff, sockfd);
+        if (buff[0] == 'n') {close(sockfd); exit(0);} //exit
+    } else {
+        take(buff, sockfd);
+        if (buff[0] == 'n') {close(sockfd); exit(0);} //exit
+        printf("Play again as O? [y/n]: ");
+        do {
+            int n = 0;
+            while ((buff[n++] = getchar()) != '\n');
+            if (buff[0] == 'n') {
+                write(sockfd, buff, sizeof(buff));
+                exit(0); //exit
+            }
+            if (buff[0] == 'y') {
+                write(sockfd, buff, sizeof(buff));
+                break;
+            }
+        } while (1);
+    }
+    playgame(sockfd);
 }
 
 
-
+/* main()
+ * socket code adapted from 
+ *      https://thecodeforge.io/c-cpp/c-networking-sockets/
+ * Set up a TCP connection.  
+ */
 int main(int argc, char**argv) {
     if (argv[1][0]=='o')
         isX=0;
     else
         isX=1;
-//same---------------------
+//same for both players
     int sockfd, connfd, len;
     struct sockaddr_in servaddr, cli;
 
@@ -146,8 +195,8 @@ int main(int argc, char**argv) {
     // assign IP, PORT
     servaddr.sin_family = AF_INET;
     servaddr.sin_port = htons(PORT);
-//-----------------------------
-    if (isX){
+//split here
+    if (isX){ //player X goes first and acts as server
         servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
  
         // Binding newly created socket to given IP and verification
@@ -177,9 +226,9 @@ int main(int argc, char**argv) {
             printf("Connected to player O.\n");
 
         // Function for chatting between client and server
-        func(connfd);
+        playgame(connfd);
 
-   } else {
+   } else { //player O goes second and acts as the client
         char*address = malloc(sizeof(char)*16);
         printf("Address to connect:  ");
         fgets(address, sizeof(char)*16, stdin);
@@ -194,10 +243,9 @@ int main(int argc, char**argv) {
         else
             printf("Connected to player X\n");
 
-        func(sockfd);
+        playgame(sockfd);
     }
 
-
-        // close the socket
+    // close the socket in case it was not closed already
     close(sockfd);
 }
