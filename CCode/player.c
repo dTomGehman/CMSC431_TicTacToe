@@ -22,22 +22,20 @@
 #include "time.h"
 
 #define PORT 9000
-#define ADDRESS "127.0.0.1"
 #define BUFFSIZE 1024
 #define SA struct sockaddr
 
-//run this code with either 'x' or 'o' as the first argument
-//'x' becomes the 'server' and listens first.  
-//'o' must be started second and sends a message first.  
-int isX;
-struct TicTacToe *game; 
-FILE *fp;
+int isX; //indicate who I am
+struct TicTacToe *game; //game structure
+FILE *fp; //log file
+
 
 /**
  * take(buff, sockfd);
  * Tom Gehman
  *
  * read a line from the socket
+ * we also write this to the log file
  */
 void take(char*buff, int sockfd){
     bzero(buff, BUFFSIZE);
@@ -51,6 +49,9 @@ void take(char*buff, int sockfd){
  * Tom Gehman
  *
  * gameplay function.  Take turns making moves.
+ * Take input from stdin and the socket, and update the board accordingly.  
+ * When a win or draw is made, indicate such, and ask to play again.  
+ * call this function recursively for every new game
  */
 void playgame(int sockfd)
 {
@@ -61,7 +62,7 @@ void playgame(int sockfd)
     char buff[BUFFSIZE];
     
     //move format:  Command [row col]
-    //Commands:  e (exit), m (move), p (play again)
+    //Commands:  e (exit), m (move)
     // e.g., on the first move, suppose X wants to move to row 1, column 2
     // m12
 
@@ -69,10 +70,9 @@ void playgame(int sockfd)
 
     setPlayer(game, 1);
     if (isX){ //make first move
-
         turn++;
         printf("\nTurn %d\n", turn);
-        do {
+        do { //take input and check it before proceeding
             bzero(buff, sizeof(buff));
             printf("Enter move:  ");
             int n = 0;
@@ -85,18 +85,24 @@ void playgame(int sockfd)
             }
         } while (!makeMove(game, buff[1]-'0', buff[2]-'0'));
 
+        //update board, send move out
         printf("\n%s\n", toString(game));
         write(sockfd, buff, sizeof(buff));
-        fprintf(fp,"Sent: %s\n", buff);
+        fprintf(fp,"Sent: %s\n", buff); //write log
     }
 
+    // Main game loop
     for (;;) { //loop until the game is finished.  Player O receives X's message. 
         //receive a move
         turn++;
         setPlayer(game, !isX);
         printf("Turn %d\n", turn);
+
+        //get input from socket
         take(buff, sockfd);
         if (buff[0] == 'e') {close(sockfd); fclose(fp);exit(0);} //exit
+
+        //make the move and check for win/draw
         makeMove(game, buff[1]-'0', buff[2]-'0');
         printf("%s\n", toString(game));
         if (checkForWin(game)){
@@ -111,7 +117,7 @@ void playgame(int sockfd)
         turn++;
         setPlayer(game, isX);
         printf("Turn %d\n", turn);
-        do {
+        do { //take input and check
             bzero(buff, sizeof(buff));
             printf("Enter move:  ");
             int n = 0;
@@ -127,8 +133,9 @@ void playgame(int sockfd)
 
         printf("\n%s\n", toString(game));
 
+        //send it
         write(sockfd, buff, sizeof(buff));
-        fprintf(fp,"Sent: %s\n", buff);
+        fprintf(fp,"Sent: %s\n", buff);//write log
         if (checkForWin(game)){
             printf("You Win\n");
             break;
@@ -196,31 +203,39 @@ void playgame(int sockfd)
 /* main()
  * socket code adapted from 
  *      https://thecodeforge.io/c-cpp/c-networking-sockets/
- * Set up a TCP connection.  
+ * modified by Tom Gehman
+ * Set up a TCP connection and begin gameplay
  */
 int main(int argc, char**argv) {
     if (argv[1][0]=='o')
         isX=0;
     else
         isX=1;
-//same for both players
+    //same for both players
     int sockfd, connfd, len;
     struct sockaddr_in servaddr, cli;
 
     // socket create and verification
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd == -1) {
-        printf("socket creation failed...\n");
+        printf("socket creation failed.\n");
         exit(0);
     }
     else
         printf("Socket successfully created..\n");
-    bzero(&servaddr, sizeof(servaddr));
+
+    //enable socket reuse after termination (w/o delay)
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0){
+        printf("failed to set reuseaddr\n");
+        exit(0);
+    }
 
     // assign IP, PORT
+    bzero(&servaddr, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
     servaddr.sin_port = htons(PORT);
-//split here
+
+    //split here
     if (isX){ //player X goes first and acts as server
         servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
  
@@ -250,10 +265,12 @@ int main(int argc, char**argv) {
         else
             printf("Connected to player O.\n");
 
-        // Function for chatting between client and server
+        //Open a log file, use the time to make unique name
         char filename[1000];
         sprintf(filename, "xLog%ld", time(NULL));
         fp = fopen(filename, "w");
+        
+        //commence
         playgame(connfd);
 
    } else { //player O goes second and acts as the client
@@ -271,9 +288,12 @@ int main(int argc, char**argv) {
         else
             printf("Connected to player X\n");
 
+        //Open a log file, use the time to make unique name
         char filename[1000];
         sprintf(filename, "oLog%ld", time(NULL));
         fp = fopen(filename, "w");
+
+        //begin
         playgame(sockfd);
     }
 
