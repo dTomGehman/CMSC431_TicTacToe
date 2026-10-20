@@ -1,5 +1,6 @@
 *.zip
 *.o
+log*
 play
 __pycache__/
 /PythonCode/test.py

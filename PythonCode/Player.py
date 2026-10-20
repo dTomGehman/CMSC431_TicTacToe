@@ -3,6 +3,7 @@ import TicTacUtils as ttu
 import sys
 import socket
 import ipaddress
+import time 
 # Note: socket module is "transliteration of the Unix system call and library interface"
 # In other words, most docs for socket are in man pages, man 7 socket, man 7 ip, and man 2 socket for example.
 
@@ -30,7 +31,8 @@ def server_sock(addr, port):
     return connsock
 
 def opponent_move(board,sock):
-    move = str(sock.recv(2048), 'utf8')
+    move = sock.recv(2048).decode('utf8').rstrip('\x00')
+    write_log(receiver=True,msg=move)
     if len(move) == 0:
         exit("Critical error, client has disconnected.")
     first_char = move[0]
@@ -43,16 +45,9 @@ def opponent_move(board,sock):
     #    sock.close()
     #    exit("played")
     if len(move) <= 2:
-        exit("Invalid move, not exit, no r/c spec")
-    try:
-        row = int(move[1])
-        col = int(move[2])
-    except:
-        row = repr(move[1])
-        col = repr(move[2])
-        print(f"String len: {len(move)}")
-        print("String contents: " + move)
-        exit(f"Failed to cast integers, move[1] and move[2]")
+        exit("Invalid move, not exit, no r/c spec. Exiting...")
+    row = int(move[1])
+    col = int(move[2])
     if not board.makeMove(row,col):
         print("Invalid move received from server, board desynced?")
         return False
@@ -64,7 +59,9 @@ def my_move(board,sock):
         return False
     first_char = move[0]
     if first_char == 'e':
-        print("Opponent triggered exit, closing socket...")
+        print("You triggered exit, closing socket...")
+        sock.send(b'e')
+        write_log(receiver=False,msg='e')
         sock.close()
         exit("Exiting game...")
     #if first_char == 'p':
@@ -126,7 +123,9 @@ def begin_game(board,sock,player):
         col = str(initial_move[1])
         print(f"Player {player} marked {row},{col}")
         print(board.toString())
-        sock.send(bytes("m"+row+col,"utf8"))
+        bytestring = bytes("m"+row+col,"utf8")
+        sock.send(bytestring)
+        write_log(receiver=False,msg=bytestring.decode('utf8'))
     while True:
         # Opponents move
         board.setPlayer(opponent)
@@ -161,11 +160,30 @@ def begin_game(board,sock,player):
         col = str(move_success[1])
         print(f"Player {player} marked {row},{col}")
         print(board.toString())
-        sock.send(bytes("m"+row+col,"utf8"))
+        bytestring = bytes("m"+row+col,"utf8")
+        sock.send(bytestring)
+        write_log(receiver=False,msg=bytestring.decode('utf8'))
+        
         # Returning true means a rematch is desired
         rematch = win_check(sock, board, "You win.")
         if rematch != "none":
             return rematch
+
+# Returns the other player's id (x or o), opposite of the passed players.
+def not_me(player):
+    player = player.casefold()
+    if player == 'x':
+        return 'o'
+    elif player == 'o':
+        return 'x'
+    else:
+        return 'error'
+# I should've made this function earlier, way too many of these file write lines gets confusing.
+def write_log(receiver, msg):
+    if receiver:
+        fileobj.write(f"From player {not_me(player)} ({opponent_ip}:{opponent_port}), received --> {msg}\n")
+    else:
+        fileobj.write(f"From player {player} ({my_ip}:{my_port}), sent --> {msg}\n")
 
 # I think, in Tom's code, the client (o) writes the rematch desire, then takes
 # And vice versa, the server code receives the rematch desire, and then gives
@@ -176,25 +194,32 @@ def handle_rematch(sock,player,rematch):
         print("You denied a rematch, closing...")
         # receive and discard from client
         if player == 'x':
-            sock.recv(1024)
+            trash = sock.recv(1024).decode('utf8').rstrip('\x00')
+            write_log(receiver=True,msg=trash)
             sock.send(b'n')
+            write_log(receiver=False,msg='n')
             sock.close()
             exit()
         else:
             sock.send(b'n')
+            write_log(receiver=False,msg='n')
             sock.close()
             exit()
     else:
         print("Requesting rematch...")
         # receive from client if server
         if player == 'x':
-            desire = str(sock.recv(1024),'utf8')[0]
+            desire = sock.recv(1024).decode('utf8')[0]
+            write_log(receiver=True,msg=desire)
             if desire == 'y':
                 sock.send(b'y')
+                write_log(receiver=False,msg='y')
                 return True
         else:
             sock.send(b'y')
-            desire = str(sock.recv(1024),'utf8')[0]
+            write_log(receiver=False,msg='y')
+            desire = sock.recv(1024).decode('utf8')[0]
+            write_log(receiver=True,msg=desire)
             if desire == 'y':
                 return True
 port = 9000
@@ -214,15 +239,15 @@ else:
     # '' means any address, i.e. 0.0.0.0
     sock = server_sock('',port)
 
+# Open a file for logging
+filename = "log_"+str(time.time()).split('.')[0]
+fileobj = open(filename,'w') 
+opponent_ip, opponent_port = sock.getpeername()
+my_ip, my_port = sock.getsockname()
 
 board = ttu.TicTacToe() 
 while True:
     rematch = begin_game(board,sock,player)
     handle_rematch(sock,player,rematch)
     # Rematch begins, swap the players for next game call
-    if player == 'x':
-        player = 'o'
-    elif player == 'o':
-        player = 'x'
-    else:
-        exit("Critical error, invalid player somehow.")
+    player = not_me(player)
