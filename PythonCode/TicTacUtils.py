@@ -53,8 +53,10 @@ class TicTacToe:
 
     def getPlayer(self):
         return self.__player_move;
-	
-
+    def getTurnCount(self):
+        return self.__turn_count
+    def resetTurnCount(self):
+        self.__turn_count = 0
 ##	  Will update the game_board based on location and
 ##	  which player is actively moving.  Will not update a location
 ##	  if a player has already played there or if player_move is
@@ -99,11 +101,7 @@ class TicTacToe:
 		
         if (self.__game_board[0][2] == win_token) and (board[1][1] == win_token) and (board[2][0] == win_token):
             win = True
-        # Added conditional by me
-        if self.__turn_count == 9 and not win:
-            print("Stalemate! Adding more moves is pointless")
         return win
-
 ##	  @return The state of the board.
     def toString(self):
         board = "-------\n";

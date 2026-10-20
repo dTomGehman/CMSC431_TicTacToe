@@ -59,7 +59,7 @@ def opponent_move(board,sock):
     else:
         return (row,col)
 def my_move(board,sock):
-    move = input("Please enter a move:\n ")
+    move = input("Please enter a move (e.g. m11 for middle box):\n")
     if len(move) < 1:
         return False
     first_char = move[0]
@@ -74,16 +74,44 @@ def my_move(board,sock):
     if len(move) <= 2:
         print("Invalid move, non-exit, no r/c spec")
         return False
-    row = int(move[1])
-    col = int(move[2])
+    # Ensure we have two integers.
+    row = move[1]
+    col = move[2]
+    if not row.isdecimal() or not col.isdecimal():
+        print("Non digit move.")
+        return False
+    row = int(row)
+    col = int(col)
     if not board.makeMove(row,col):
         print("Board spot in use, or out of bounds")
         return False
     else:
         return (row,col)
 
+def win_check(sock, board, msg):
+    if board.checkForWin():
+        board.resetTurnCount()
+        print(msg)
+        val = input("Play again? [Y/N]\n").casefold()[0]
+        if val == 'y':
+            return True
+        else:
+            return False
+    elif board.getTurnCount() == 9:
+        board.resetTurnCount()
+        print("It's a draw.")
+        val = input("Play again? [Y/N]\n").casefold()[0]
+        if val == 'y':
+            return True
+        else:
+            return False
+    return "none"
+
 def begin_game(board,sock,player):
-    # lol
+    board.resetGame()
+    print("Starting game and printing board...")
+    print(board.toString())
+    # Set opponent to opposite of player
     opponent = 'x'
     if ord(player) > ord('o'):
         opponent = 'o'
@@ -109,10 +137,20 @@ def begin_game(board,sock,player):
         col = move_success[1]
         print(f"Player {opponent} marked {row},{col}")
         print(board.toString())
-        if board.checkForWin():
-            print("Your loss.")
-            sock.close()
-            exit()
+        # win_check returning true means a rematch is desired
+        rematch = win_check(sock, board, "You lose.")
+        if rematch != "none":
+            return rematch
+        #if board.checkForWin():
+        #    print("Your loss.")
+        #    val = input("Play again? [Y/N]\n").casefold()
+        #    if val == 'y':
+        #        return True
+        #    else:
+        #        print("Ending game session...")
+        #        sock.send(b'e')
+        #        sock.close()
+        #        exit()
         # Our move
         move_success = False
         board.setPlayer(player)
@@ -124,11 +162,41 @@ def begin_game(board,sock,player):
         print(f"Player {player} marked {row},{col}")
         print(board.toString())
         sock.send(bytes("m"+row+col,"utf8"))
-        if board.checkForWin():
-            print("You win! Congrats! すばらしい!")
+        # Returning true means a rematch is desired
+        rematch = win_check(sock, board, "You win.")
+        if rematch != "none":
+            return rematch
+
+# I think, in Tom's code, the client (o) writes the rematch desire, then takes
+# And vice versa, the server code receives the rematch desire, and then gives
+# We'll try doing it like that, and if it fails, we'll see why.
+# If you're the server, receive the desired rematch.
+def handle_rematch(sock,player,rematch):
+    if not rematch:
+        print("You denied a rematch, closing...")
+        # receive and discard from client
+        if player == 'x':
+            sock.recv(1024)
+            sock.send(b'n')
             sock.close()
             exit()
-
+        else:
+            sock.send(b'n')
+            sock.close()
+            exit()
+    else:
+        print("Requesting rematch...")
+        # receive from client if server
+        if player == 'x':
+            desire = str(sock.recv(1024),'utf8')[0]
+            if desire == 'y':
+                sock.send(b'y')
+                return True
+        else:
+            sock.send(b'y')
+            desire = str(sock.recv(1024),'utf8')[0]
+            if desire == 'y':
+                return True
 port = 9000
 player = Exception
 sock = Exception
@@ -148,4 +216,13 @@ else:
 
 
 board = ttu.TicTacToe() 
-begin_game(board,sock,player)
+while True:
+    rematch = begin_game(board,sock,player)
+    handle_rematch(sock,player,rematch)
+    # Rematch begins, swap the players for next game call
+    if player == 'x':
+        player = 'o'
+    elif player == 'o':
+        player = 'x'
+    else:
+        exit("Critical error, invalid player somehow.")
