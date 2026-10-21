@@ -10,4 +10,4 @@ TicTacToe.o: TicTacToe.c
 	gcc -c TicTacToe.c 
 
 clean:
-	rm *.o play
+	rm *.o play *Log*

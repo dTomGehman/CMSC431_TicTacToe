@@ -71,6 +71,8 @@ void playgame(int sockfd)
     // m12
 
     int turn=0;//use this variable to count turns to determine stalemate
+    printf("When prompted to enter moves, type m<Row><Col> \n  e.g. m12\n");
+    printf("Numbers 0-2 are valid. \nSend 'e' to exit. \n\n");
 
     //X sends the first move.  
     setPlayer(game, 1);
@@ -105,7 +107,7 @@ void playgame(int sockfd)
         //Ready to receive a move
         turn++; //keep track of turn number to see when board fills.  
         setPlayer(game, !isX);
-        printf("Turn %d\n", turn);
+        printf("Turn %d (wait for other player)\n", turn);
 
         //get input from socket
         take(buff, sockfd);
@@ -183,6 +185,8 @@ void playgame(int sockfd)
             }
         } while (1);
         //check what (new) O sent:  if no, exit
+        printf("Wait...\n");
+
         take(buff, sockfd);
         if (buff[0] == 'n') {
             close(sockfd); 
@@ -192,6 +196,8 @@ void playgame(int sockfd)
 
     } else { //(new) player O
         //receive from X
+        printf("Wait...\n");
+
         take(buff, sockfd);
         if (buff[0] == 'n') { //if no, exit
             close(sockfd); 
@@ -237,12 +243,20 @@ void playgame(int sockfd)
  * Once the connection is established, playgame() is called
  */
 int main(int argc, char**argv) {
+    if (argc!=2) {
+        printf("Usage:  ./play x\n        ./play o\n");
+        exit(0);
+    }
     //check if the player is x (server) 
     //  or o (client)
     if (argv[1][0]=='o')
         isX=0;
-    else
+    else if (argv[1][0]=='x')
         isX=1;
+    else {
+        printf("Bad input, exit\n");
+        exit(0);
+    }
 
     //socket creation same for both players
     int sockfd, connfd, len;
