@@ -1,4 +1,10 @@
 #!/usr/bin/env python
+"""
+Author: Daniel Morine
+This is the python server/client for the tictactoe networking game. 
+It was entirely authored by Daniel Morine, with comments from tom.
+The only sources consulted were python.org sockets page, and man pages.
+"""
 import TicTacUtils as ttu
 import sys
 import socket
@@ -7,7 +13,11 @@ import time
 # Note: socket module is "transliteration of the Unix system call and library interface"
 # In other words, most docs for socket are in man pages, man 7 socket, man 7 ip, and man 2 socket for example.
 
-
+"""
+client_sock(port)
+Daniel Morine
+ask for the server's IP address and connect to it using a client socket.
+"""
 def client_sock(port):
     while True:
         try:
@@ -24,12 +34,22 @@ def client_sock(port):
     except:
         exit(f"Critical error, can't connect to {addr}:{port}")
 
+"""
+server_sock(addr, port)
+Daniel Morine
+set up the server socket and wait for the other player to connect.
+"""
 def server_sock(addr, port):
     initsock = socket.create_server(address=(addr,port),family=socket.AF_INET)
     initsock.listen()
     connsock = initsock.accept()[0]
     return connsock
-
+"""
+opponent_move(board, sock)
+Daniel Morine
+get the other player's move from the socket and put it on the board.
+also handles exit messages and invalid moves.
+"""
 def opponent_move(board,sock):
     move = sock.recv(2048).decode('utf8').rstrip('\x00')
     write_log(receiver=True,msg=move)
@@ -40,10 +60,6 @@ def opponent_move(board,sock):
         print("Opponent triggered exit, closing socket...")
         sock.close()
         exit("Exiting game...")
-    #if first_char == 'p':
-    #    print("play again")
-    #    sock.close()
-    #    exit("played")
     if len(move) <= 2:
         exit("Invalid move, not exit, no r/c spec. Exiting...")
     row = int(move[1])
@@ -53,6 +69,12 @@ def opponent_move(board,sock):
         return False
     else:
         return (row,col)
+
+"""
+my_move(board, sock)
+Daniel Morine
+ask the player for a move, check if it's valid and put it on the board.
+"""
 def my_move(board,sock):
     move = input("Please enter a move (e.g. m11 for middle box):\n")
     if len(move) < 1:
@@ -64,10 +86,6 @@ def my_move(board,sock):
         write_log(receiver=False,msg='e')
         sock.close()
         exit("Exiting game...")
-    #if first_char == 'p':
-    #    print("play again")
-    #    sock.close()
-    #    exit("played")
     if len(move) <= 2:
         print("Invalid move, non-exit, no r/c spec")
         return False
@@ -85,6 +103,12 @@ def my_move(board,sock):
     else:
         return (row,col)
 
+"""
+win_check(sock, board, msg)
+Daniel Morine
+check if someone won or if the game ended in a draw.
+ask if the player wants to play again.
+"""
 def win_check(sock, board, msg):
     if board.checkForWin():
         board.resetTurnCount()
@@ -103,7 +127,12 @@ def win_check(sock, board, msg):
         else:
             return False
     return "none"
-
+"""
+begin_game(board, sock, player)
+Daniel Morine
+start a new game and take turns receiving the opponent's moves and
+making your own. check for wins and draws, then handle the end of the game.
+"""
 def begin_game(board,sock,player):
     board.resetGame()
     print("Starting game and printing board...")
@@ -140,16 +169,6 @@ def begin_game(board,sock,player):
         rematch = win_check(sock, board, "You lose.")
         if rematch != "none":
             return rematch
-        #if board.checkForWin():
-        #    print("Your loss.")
-        #    val = input("Play again? [Y/N]\n").casefold()
-        #    if val == 'y':
-        #        return True
-        #    else:
-        #        print("Ending game session...")
-        #        sock.send(b'e')
-        #        sock.close()
-        #        exit()
         # Our move
         move_success = False
         board.setPlayer(player)
@@ -163,13 +182,15 @@ def begin_game(board,sock,player):
         bytestring = bytes("m"+row+col,"utf8")
         sock.send(bytestring)
         write_log(receiver=False,msg=bytestring.decode('utf8'))
-        
         # Returning true means a rematch is desired
         rematch = win_check(sock, board, "You win.")
         if rematch != "none":
             return rematch
-
-# Returns the other player's id (x or o), opposite of the passed players.
+"""
+not_me(player)
+Daniel Morine
+Returns the other player's id (x or o), opposite of the passed players.
+"""
 def not_me(player):
     player = player.casefold()
     if player == 'x':
@@ -178,17 +199,23 @@ def not_me(player):
         return 'x'
     else:
         return 'error'
-# I should've made this function earlier, way too many of these file write lines gets confusing.
+"""
+write_log(receiver,msg)
+Daniel Morine
+Just a helper function to write to the log file with ip, port, and player. As well as whether sending or receiving.
+"""
 def write_log(receiver, msg):
     if receiver:
         fileobj.write(f"From player {not_me(player)} ({opponent_ip}:{opponent_port}), received --> {msg}\n")
     else:
         fileobj.write(f"From player {player} ({my_ip}:{my_port}), sent --> {msg}\n")
 
-# I think, in Tom's code, the client (o) writes the rematch desire, then takes
-# And vice versa, the server code receives the rematch desire, and then gives
-# We'll try doing it like that, and if it fails, we'll see why.
-# If you're the server, receive the desired rematch.
+"""
+handle_rematch(sock, player, rematch)
+Daniel Morine
+ask the other player about a rematch and exchange their answers.
+if either player says no, close the connection.
+"""
 def handle_rematch(sock,player,rematch):
     if not rematch:
         print("You denied a rematch, closing...")
