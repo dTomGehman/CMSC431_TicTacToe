@@ -43,7 +43,7 @@ void take(char*buff, int sockfd){
     bzero(buff, BUFFSIZE);
     read(sockfd, buff, BUFFSIZE);
     printf("Received: %s\n", buff);
-    fprintf(fp,"Received from %s to %s: %s\n", peeraddress, myaddress, buff);
+    fprintf(fp,"Received from %s to %s: %s", peeraddress, myaddress, buff);
 }
 
 /**
@@ -54,6 +54,8 @@ void take(char*buff, int sockfd){
  * Take input from stdin and the socket, and update the board accordingly.  
  * When a win or draw is made, indicate such, and ask to play again.  
  * call this function recursively for every new game
+ *
+ * This function is used by both client (o) and server (x). 
  */
 void playgame(int sockfd)
 {
@@ -70,6 +72,7 @@ void playgame(int sockfd)
 
     int turn=0;//use this variable to count turns to determine stalemate
 
+    //X sends the first move.  
     setPlayer(game, 1);
     if (isX){ //make first move
         turn++;
@@ -91,19 +94,24 @@ void playgame(int sockfd)
         //update board, send move out
         printf("\n%s\n", toString(game));
         write(sockfd, buff, sizeof(buff));
-        fprintf(fp,"Sending from %s to %s:  %s\n", myaddress, peeraddress, buff); //write log
+        fprintf(fp,"Sending from %s to %s:  %sX moved to Row %c Col %c\n\n\n", 
+                myaddress, peeraddress, buff, buff[1], buff[2]); //write log
     }
 
-    // Main game loop
-    for (;;) { //loop until the game is finished.  Player O receives X's message. 
-        //receive a move
-        turn++;
+    // Main game loop : receive a message, then send a message
+    for (;;) { //loop until the game is finished.  
+        // First iteration:  O begins here by waiting.  X waits here for O's first move
+        
+        //Ready to receive a move
+        turn++; //keep track of turn number to see when board fills.  
         setPlayer(game, !isX);
         printf("Turn %d\n", turn);
 
         //get input from socket
         take(buff, sockfd);
         if (buff[0] == 'e') {close(sockfd); fclose(fp);exit(0);} //exit
+        fprintf(fp,"%c moved to Row %c Col %c\n\n\n", 
+                isX?'O':'X', buff[1], buff[2]); //write log
 
         //make the move and check for win/draw
         makeMove(game, buff[1]-'0', buff[2]-'0');
@@ -111,7 +119,7 @@ void playgame(int sockfd)
         if (checkForWin(game)){
             printf("You Lose\n");
             break;
-        } else if (turn==9) {
+        } else if (turn==9) { //Board is full, stalemate
             printf("Stalemate\n");
             break;
         }
@@ -120,7 +128,7 @@ void playgame(int sockfd)
         turn++;
         setPlayer(game, isX);
         printf("Turn %d\n", turn);
-        do { //take input and check
+        do { //take input from STDIN and check
             bzero(buff, sizeof(buff));
             printf("Enter move:  ");
             int n = 0;
@@ -137,13 +145,15 @@ void playgame(int sockfd)
 
         printf("\n%s\n", toString(game));
 
-        //send it
+        //send it by the socket
         write(sockfd, buff, sizeof(buff));
-        fprintf(fp,"Sending from %s to %s:  %s\n", myaddress, peeraddress, buff); //write log
+        fprintf(fp,"Sending from %s to %s:  %s%c moved to Row %c Col %c\n\n\n", 
+                myaddress, peeraddress, buff, 
+                isX?'X':'O', buff[1], buff[2]); //write log
         if (checkForWin(game)){
             printf("You Win\n");
             break;
-        } else if (turn==9) {
+        } else if (turn==9) { //Board is full, stalemate.  
             printf("Stalemate\n");
             break;
         }
@@ -153,41 +163,48 @@ void playgame(int sockfd)
     isX=!isX;
     if (isX) {
         printf("Play again as X? [y/n]: ");
+        //(new) X is asked first, sends message
         do {
             int n = 0;
             while ((buff[n++] = getchar()) != '\n');
-            buff[1]='\0';
-            if (buff[0] == 'n') {
+            buff[1]='\n';
+            buff[2]='\0';
+            if (buff[0] == 'n') { //no?  close down
                 write(sockfd, buff, sizeof(buff));
                 fprintf(fp,"Sending from %s to %s:  %s\n", myaddress, peeraddress, buff); //write log
                 fclose(fp);
                 close(sockfd);
                 exit(0); //exit
             }
-            if (buff[0] == 'y') {
+            if (buff[0] == 'y') { //yes?  proceed
                 write(sockfd, buff, sizeof(buff));
                 fprintf(fp,"Sending from %s to %s:  %s\n", myaddress, peeraddress, buff); //write log
                 break;
             }
         } while (1);
+        //check what (new) O sent:  if no, exit
         take(buff, sockfd);
         if (buff[0] == 'n') {
             close(sockfd); 
             fclose(fp);
             exit(0); 
-        } //exit
-    } else {
+        } 
+
+    } else { //(new) player O
+        //receive from X
         take(buff, sockfd);
-        if (buff[0] == 'n') {
+        if (buff[0] == 'n') { //if no, exit
             close(sockfd); 
             fclose(fp);
             exit(0);
-        } //exit
+        } 
         printf("Play again as O? [y/n]: ");
+        //(new) O is asked second, just like X.  
         do {
             int n = 0;
             while ((buff[n++] = getchar()) != '\n');
-            buff[1]='\0';
+            buff[1]='\n';
+            buff[2]='\0';
             if (buff[0] == 'n') {
                 write(sockfd, buff, sizeof(buff));
                 fprintf(fp,"Sending from %s to %s:  %s\n", myaddress, peeraddress, buff); //write log
@@ -202,6 +219,10 @@ void playgame(int sockfd)
             }
         } while (1);
     }
+
+    //Assuming neither player has opted to quit, 
+    //we recursively call the playgame function.  
+    //The X-O roles are reversed.  
     playgame(sockfd);
 }
 
@@ -211,13 +232,19 @@ void playgame(int sockfd)
  *      https://thecodeforge.io/c-cpp/c-networking-sockets/
  * modified by Tom Gehman
  * Set up a TCP connection and begin gameplay
+ * This function works as both the server and client to 
+ *    consolidate some code -- they split midway
+ * Once the connection is established, playgame() is called
  */
 int main(int argc, char**argv) {
+    //check if the player is x (server) 
+    //  or o (client)
     if (argv[1][0]=='o')
         isX=0;
     else
         isX=1;
-    //same for both players
+
+    //socket creation same for both players
     int sockfd, connfd, len;
     struct sockaddr_in servaddr, cli;
 
@@ -241,11 +268,11 @@ int main(int argc, char**argv) {
     servaddr.sin_family = AF_INET;
     servaddr.sin_port = htons(PORT);
 
-    //split here
+    //split client/server code here
     if (isX){ //player X goes first and acts as server
         servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
  
-        // Binding newly created socket to given IP and verification
+        //Binding newly created socket to given IP and verification
         if ((bind(sockfd, (SA*)&servaddr, sizeof(servaddr))) != 0) {
             printf("socket bind failed...\n");
             exit(0);
@@ -253,7 +280,7 @@ int main(int argc, char**argv) {
         else
             printf("Socket successfully binded..\n");
 
-        // Now server is ready to listen and verification
+        //now server is ready to listen and verification
         if ((listen(sockfd, 5)) != 0) {
             printf("Listen failed...\n");
             exit(0);
@@ -262,7 +289,7 @@ int main(int argc, char**argv) {
             printf("listening..\n");
         len = sizeof(cli);
 
-        // Accept the data packet from client and verification
+        //Accept the data packet from client and verification
         connfd = accept(sockfd, (SA*)&cli, &len);
         if (connfd < 0) {
             printf("server accept failed...\n");
@@ -276,37 +303,34 @@ int main(int argc, char**argv) {
         sprintf(filename, "xLog%ld", time(NULL));
         fp = fopen(filename, "w");
         
+        //Grab peer's ip address as string
         struct sockaddr_in peeraddr;
 		socklen_t peeraddrlen = sizeof(peeraddr);
 		if (0<getpeername(connfd, (struct sockaddr *) &peeraddr, &peeraddrlen)){
             printf("peername error"); exit(0);
         }
-
 		peeraddress = inet_ntoa(peeraddr.sin_addr);
 
+        //Grab self's ip address
         struct sockaddr_in myaddr;
 		socklen_t myaddrlen = sizeof(myaddr);
 		if (0<getsockname(connfd, (struct sockaddr *) &myaddr, &myaddrlen)){
             printf("myname error"); exit(0);
         }
-
 		myaddress = inet_ntoa(myaddr.sin_addr);
-
-        //printf("me%s you%s\n", myaddress, peeraddress);
-
 
         //commence
         playgame(connfd);
 
    } else { //player O goes second and acts as the client
+        //grab ip from stdin
         peeraddress = malloc(sizeof(char)*16);
         printf("Address to connect:  ");
         fgets(peeraddress, sizeof(char)*16, stdin);
-        //remove newline char
-        peeraddress[strlen(peeraddress)-1]='\0';
-
+        peeraddress[strlen(peeraddress)-1]='\0';//remove newline char
         servaddr.sin_addr.s_addr = inet_addr(peeraddress);
-        // connect the client socket to server socket
+
+        //connect the client socket to server socket
         if (connect(sockfd, (SA*)&servaddr, sizeof(servaddr))
             != 0) {
             printf("connection with the server failed...\n");
@@ -320,16 +344,13 @@ int main(int argc, char**argv) {
         sprintf(filename, "oLog%ld", time(NULL));
         fp = fopen(filename, "w");
 
+        //get self's ip address as string
         struct sockaddr_in myaddr;
 		socklen_t myaddrlen = sizeof(myaddr);
 		if (0<getsockname(sockfd, (struct sockaddr *) &myaddr, &myaddrlen)){
             printf("myname error"); exit(0);
         }
-
 		myaddress = inet_ntoa(myaddr.sin_addr);
-
-        //printf("me%s you%s\n", myaddress, peeraddress);
-
 
         //begin
         playgame(sockfd);
