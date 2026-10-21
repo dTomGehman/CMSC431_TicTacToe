@@ -1,3 +1,12 @@
+/**
+ * TicTacToe.h
+ * Tom Gehman
+ *
+ * This is a collection of function headers 
+ *  and a struct for the game functionality,
+ *  as written by Dr. Girard in TicTacToe.c
+ */
+
 struct TicTacToe 
 {
 	/**
