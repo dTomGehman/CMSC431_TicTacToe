@@ -43,7 +43,7 @@ void take(char*buff, int sockfd){
     bzero(buff, BUFFSIZE);
     read(sockfd, buff, BUFFSIZE);
     printf("Received: %s\n", buff);
-    fprintf(fp,"Received from %s to %s: %s", peeraddress, myaddress, buff);
+    fprintf(fp,"Received from %s to %s: %s\n", peeraddress, myaddress, buff);
 }
 
 /**
