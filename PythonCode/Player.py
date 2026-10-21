@@ -44,6 +44,8 @@ def server_sock(addr, port):
     initsock.listen()
     connsock = initsock.accept()[0]
     return connsock
+
+
 """
 opponent_move(board, sock)
 Daniel Morine
@@ -82,7 +84,8 @@ def my_move(board,sock):
     first_char = move[0]
     if first_char == 'e':
         print("You triggered exit, closing socket...")
-        sock.send(b'e')
+        bytestring = b'e'
+        sock.sendall(bytestring.ljust(1024, b'\0'))
         write_log(receiver=False,msg='e')
         sock.close()
         exit("Exiting game...")
@@ -153,7 +156,8 @@ def begin_game(board,sock,player):
         print(f"Player {player} marked {row},{col}")
         print(board.toString())
         bytestring = bytes("m"+row+col,"utf8")
-        sock.send(bytestring)
+
+        sock.sendall(bytestring.ljust(1024, b'\0'))
         write_log(receiver=False,msg=bytestring.decode('utf8'))
     while True:
         # Opponents move
@@ -180,7 +184,7 @@ def begin_game(board,sock,player):
         print(f"Player {player} marked {row},{col}")
         print(board.toString())
         bytestring = bytes("m"+row+col,"utf8")
-        sock.send(bytestring)
+        sock.sendall(bytestring.ljust(1024, b'\0'))
         write_log(receiver=False,msg=bytestring.decode('utf8'))
         # Returning true means a rematch is desired
         rematch = win_check(sock, board, "You win.")
@@ -223,12 +227,14 @@ def handle_rematch(sock,player,rematch):
         if player == 'x':
             trash = sock.recv(1024).decode('utf8').rstrip('\x00')
             write_log(receiver=True,msg=trash)
-            sock.send(b'n')
+            bytestring = b'n'
+            sock.sendall(bytestring.ljust(1024, b'\0'))
             write_log(receiver=False,msg='n')
             sock.close()
             exit()
         else:
-            sock.send(b'n')
+            bytestring = b'n'
+            sock.sendall(bytestring.ljust(1024, b'\0'))
             write_log(receiver=False,msg='n')
             sock.close()
             exit()
@@ -239,11 +245,13 @@ def handle_rematch(sock,player,rematch):
             desire = sock.recv(1024).decode('utf8')[0]
             write_log(receiver=True,msg=desire)
             if desire == 'y':
-                sock.send(b'y')
+                bytestring = b'y'
+                sock.sendall(bytestring.ljust(1024, b'\0'))
                 write_log(receiver=False,msg='y')
                 return True
         else:
-            sock.send(b'y')
+            bytestring = b'y'
+            sock.sendall(bytestring.ljust(1024, b'\0'))
             write_log(receiver=False,msg='y')
             desire = sock.recv(1024).decode('utf8')[0]
             write_log(receiver=True,msg=desire)
