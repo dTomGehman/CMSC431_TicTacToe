@@ -341,8 +341,8 @@ int main(int argc, char**argv) {
         peeraddress = malloc(sizeof(char)*16);
         printf("Address to connect:  ");
         fgets(peeraddress, sizeof(char)*16, stdin);
-        peeraddress[strlen(peeraddress)-1]='\0';//remove newline char
         servaddr.sin_addr.s_addr = inet_addr(peeraddress);
+        peeraddress[strlen(peeraddress)-1]='\0';//remove newline char
 
         //connect the client socket to server socket
         if (connect(sockfd, (SA*)&servaddr, sizeof(servaddr))
