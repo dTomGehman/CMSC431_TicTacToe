@@ -28,6 +28,8 @@
 int isX; //indicate who I am
 struct TicTacToe *game; //game structure
 FILE *fp; //log file
+char*peeraddress;
+char*myaddress;
 
 
 /**
@@ -41,7 +43,7 @@ void take(char*buff, int sockfd){
     bzero(buff, BUFFSIZE);
     read(sockfd, buff, BUFFSIZE);
     printf("Received: %s\n", buff);
-    fprintf(fp,"Received: %s\n", buff);
+    fprintf(fp,"Received from %s to %s: %s\n", peeraddress, myaddress, buff);
 }
 
 /**
@@ -78,6 +80,7 @@ void playgame(int sockfd)
             int n = 0;
             while ((buff[n++] = getchar()) != '\n');
             if (buff[0] == 'e') {
+                buff[1]='\0';
                 write(sockfd, buff, sizeof(buff));
                 fclose(fp);
                 close(sockfd);
@@ -88,7 +91,7 @@ void playgame(int sockfd)
         //update board, send move out
         printf("\n%s\n", toString(game));
         write(sockfd, buff, sizeof(buff));
-        fprintf(fp,"Sent: %s\n", buff); //write log
+        fprintf(fp,"Sending from %s to %s:  %s\n", myaddress, peeraddress, buff); //write log
     }
 
     // Main game loop
@@ -123,8 +126,9 @@ void playgame(int sockfd)
             int n = 0;
             while ((buff[n++] = getchar()) != '\n');
             if (buff[0] == 'e') {
+                buff[1]='\0';
                 write(sockfd, buff, sizeof(buff));
-                fprintf(fp,"Sent: %s\n", buff);
+                fprintf(fp,"Sending from %s to %s:  %s\n", myaddress, peeraddress, buff); //write log
                 //fclose(fp);
                 close(sockfd);
                 exit(0); //exit
@@ -135,7 +139,7 @@ void playgame(int sockfd)
 
         //send it
         write(sockfd, buff, sizeof(buff));
-        fprintf(fp,"Sent: %s\n", buff);//write log
+        fprintf(fp,"Sending from %s to %s:  %s\n", myaddress, peeraddress, buff); //write log
         if (checkForWin(game)){
             printf("You Win\n");
             break;
@@ -152,16 +156,17 @@ void playgame(int sockfd)
         do {
             int n = 0;
             while ((buff[n++] = getchar()) != '\n');
+            buff[1]='\0';
             if (buff[0] == 'n') {
                 write(sockfd, buff, sizeof(buff));
-                fprintf(fp,"Sent: %s\n", buff);
+                fprintf(fp,"Sending from %s to %s:  %s\n", myaddress, peeraddress, buff); //write log
                 fclose(fp);
                 close(sockfd);
                 exit(0); //exit
             }
             if (buff[0] == 'y') {
                 write(sockfd, buff, sizeof(buff));
-                fprintf(fp,"Sent: %s\n", buff);
+                fprintf(fp,"Sending from %s to %s:  %s\n", myaddress, peeraddress, buff); //write log
                 break;
             }
         } while (1);
@@ -182,16 +187,17 @@ void playgame(int sockfd)
         do {
             int n = 0;
             while ((buff[n++] = getchar()) != '\n');
+            buff[1]='\0';
             if (buff[0] == 'n') {
                 write(sockfd, buff, sizeof(buff));
-                fprintf(fp,"Sent: %s\n", buff);
+                fprintf(fp,"Sending from %s to %s:  %s\n", myaddress, peeraddress, buff); //write log
                 fclose(fp);
                 close(sockfd);
                 exit(0); //exit
             }
             if (buff[0] == 'y') {
                 write(sockfd, buff, sizeof(buff));
-                fprintf(fp,"Sent: %s\n", buff);
+                fprintf(fp,"Sending from %s to %s:  %s\n", myaddress, peeraddress, buff); //write log
                 break;
             }
         } while (1);
@@ -270,15 +276,36 @@ int main(int argc, char**argv) {
         sprintf(filename, "xLog%ld", time(NULL));
         fp = fopen(filename, "w");
         
+        struct sockaddr_in peeraddr;
+		socklen_t peeraddrlen = sizeof(peeraddr);
+		if (0<getpeername(connfd, (struct sockaddr *) &peeraddr, &peeraddrlen)){
+            printf("peername error"); exit(0);
+        }
+
+		peeraddress = inet_ntoa(peeraddr.sin_addr);
+
+        struct sockaddr_in myaddr;
+		socklen_t myaddrlen = sizeof(myaddr);
+		if (0<getsockname(connfd, (struct sockaddr *) &myaddr, &myaddrlen)){
+            printf("myname error"); exit(0);
+        }
+
+		myaddress = inet_ntoa(myaddr.sin_addr);
+
+        //printf("me%s you%s\n", myaddress, peeraddress);
+
+
         //commence
         playgame(connfd);
 
    } else { //player O goes second and acts as the client
-        char*address = malloc(sizeof(char)*16);
+        peeraddress = malloc(sizeof(char)*16);
         printf("Address to connect:  ");
-        fgets(address, sizeof(char)*16, stdin);
+        fgets(peeraddress, sizeof(char)*16, stdin);
+        //remove newline char
+        peeraddress[strlen(peeraddress)-1]='\0';
 
-        servaddr.sin_addr.s_addr = inet_addr(address);
+        servaddr.sin_addr.s_addr = inet_addr(peeraddress);
         // connect the client socket to server socket
         if (connect(sockfd, (SA*)&servaddr, sizeof(servaddr))
             != 0) {
@@ -292,6 +319,17 @@ int main(int argc, char**argv) {
         char filename[1000];
         sprintf(filename, "oLog%ld", time(NULL));
         fp = fopen(filename, "w");
+
+        struct sockaddr_in myaddr;
+		socklen_t myaddrlen = sizeof(myaddr);
+		if (0<getsockname(sockfd, (struct sockaddr *) &myaddr, &myaddrlen)){
+            printf("myname error"); exit(0);
+        }
+
+		myaddress = inet_ntoa(myaddr.sin_addr);
+
+        //printf("me%s you%s\n", myaddress, peeraddress);
+
 
         //begin
         playgame(sockfd);
