@@ -65,7 +65,6 @@ class TicTacToe:
 ##	  @param c Column player is making a move.
 ##	  @return True if the game_board was updated, False otherwise.
     def makeMove(self, r, c):
-        self.__turn_count += 1
         success = False;
         if self.__game_board[r][c] == ' ':
             if self.__player_move == 0:
@@ -74,6 +73,8 @@ class TicTacToe:
             if self.__player_move == 1:
                 self.__game_board[r][c] = 'X'
                 success = True;
+        if success:
+            self.__turn_count += 1
         return success;
 	
 	
