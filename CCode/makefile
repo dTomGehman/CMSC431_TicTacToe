@@ -1,3 +1,5 @@
+#written by Tom Gehman
+
 play: player.o TicTacToe.o 
 	gcc -o play player.o TicTacToe.o 
 
